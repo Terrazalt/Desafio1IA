@@ -9,13 +9,14 @@ import numpy as np
 import pyglet
 
 from pyglet.window import key
+from pyglet.gl import *
 from gym_duckietown.envs import DuckietownEnv
 
 
 class Desafio1:
-
-    FILTRO_AMARILLO_LOWER = np.array([0, 0, 0])
-    FILTRO_AMARILLO_UPPER = np.array([0, 0, 0])
+    print('hola')
+    FILTRO_AMARILLO_LOWER = np.array([15, 100, 120])
+    FILTRO_AMARILLO_UPPER = np.array([35, 255, 255])
 
     def __init__(self, map_name):
         self.env = DuckietownEnv(
@@ -43,13 +44,29 @@ class Desafio1:
         determinar si se activa el freno de emergencia o no.
 
         """        
-
         # Recomendación, dividir la función en 3 partes:
         # 1. Obtener la máscara de color amarillo
         # 2. Aplicar operaciones morfológicas para eliminar ruido
         # 3. Obtener bounding boxes y determinar si se activa el freno de emergencia
+        if obs is None or obs.ndim != 3 or obs.shape[2] != 3:
+            print("Observación inválida: la imagen no es BGR o tiene dimensiones incorrectas.")
+            return False
+        
+        hsv_image = cv2.cvtColor(obs, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv_image, self.FILTRO_AMARILLO_LOWER, self.FILTRO_AMARILLO_UPPER)
 
-        # Utilice funciones auxiliares para organizar el código
+        kernel = np.ones((3, 3), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for contour in contours:
+            if cv2.contourArea(contour) > 500:  
+                x, y, w, h = cv2.boundingRect(contour)
+
+                if w<50 or h<50:
+                    return True 
         return False
 
 
