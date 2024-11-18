@@ -49,14 +49,12 @@ class Desafio1:
         return mask
     
     
+     
     def morph_ops(self, mask: np.array) -> np.array:
         kernel = np.ones((5, 5), np.uint8)
         mask_eroded = cv2.erode(mask, kernel, iterations=1)  # Erosión
         mask_dilated = cv2.dilate(mask_eroded, kernel, iterations=3)  # Dilatación
-        kernel = np.ones((5, 5), np.uint8)  # Cambia a un tamaño más grande si hay mucho ruido
-        mask_cleaned = cv2.morphologyEx(mask_dilated, cv2.MORPH_OPEN, kernel)
-        mask_cleaned = cv2.morphologyEx(mask_dilated, cv2.MORPH_CLOSE, kernel)
-        return mask_cleaned
+        return mask_dilated
 
 
 
@@ -69,18 +67,22 @@ class Desafio1:
         mask = self.get_mask(obs)
         mask_morph = self.morph_ops(mask)
 
-        
-        cv2.imshow("Máscara final",cv2.bitwise_and(obs, obs, mask=mask_morph))
-
         contours, _ = cv2.findContours(mask_morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        area_total = obs.shape[0]*obs.shape[1]
         for contour in contours:
+            x,y,w,h = cv2.boundingRect(contour)
+            perimeter = cv2.arcLength(contour, True)
             area = cv2.contourArea(contour)
-            x, y, w, h = cv2.boundingRect(contour)
-            print(area)
-            print(x,y,w,h)
-            if area > 30000:  # Ajusta según el tamaño esperado del p
-                if w>120 or h>120:
-                    return True
+            if perimeter>500:
+                cv2.rectangle(obs, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.putText(obs, "Patito", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            obs_rgb = cv2.cvtColor(obs, cv2.COLOR_BGR2RGB)
+            cv2.imshow('Patitos',obs_rgb)
+            if area/area_total >= 0.09: 
+                print(perimeter)
+                print(area)   
+                return True
+
         return False
 
 
