@@ -13,11 +13,11 @@ from pyglet.gl import *
 from gym_duckietown.envs import DuckietownEnv
 
 
-class Desafio1:
-    print('hola')
-    FILTRO_AMARILLO_LOWER = np.array([15, 100, 120])
-    FILTRO_AMARILLO_UPPER = np.array([35, 255, 255])
+FILTRO_AMARILLO_LOWER = np.array([20, 100, 120])  # Ajusta el valor mínimo del tono (Hue)
+FILTRO_AMARILLO_UPPER = np.array([35, 255, 255])  #
 
+class Desafio1:
+    
     def __init__(self, map_name):
         self.env = DuckietownEnv(
             seed=1,
@@ -38,35 +38,48 @@ class Desafio1:
         self.env.unwrapped.window.push_handlers(self.key_handler)
 
 
+    def get_mask(self,obs: np.array) -> np.array:
+        FILTRO_VERDE_LOWER = np.array([31, 0, 0])  # Ajusta estos valores al color del pasto
+        FILTRO_VERDE_UPPER = np.array([179, 255, 255])  # Ajusta estos valores según sea necesario
+
+        hsv_image = cv2.cvtColor(obs, cv2.COLOR_RGB2HSV)
+        mask_verde = cv2.inRange(hsv_image, FILTRO_VERDE_LOWER, FILTRO_VERDE_UPPER)
+        mask = cv2.inRange(hsv_image, FILTRO_AMARILLO_LOWER, FILTRO_AMARILLO_UPPER)
+        mask = cv2.bitwise_and(mask, cv2.bitwise_not(mask_verde))
+        return mask
+    
+    
+    def morph_ops(self, mask: np.array) -> np.array:
+        kernel = np.ones((5, 5), np.uint8)
+        mask_eroded = cv2.erode(mask, kernel, iterations=1)  # Erosión
+        mask_dilated = cv2.dilate(mask_eroded, kernel, iterations=4)  # Dilatación
+        kernel = np.ones((5, 5), np.uint8)  # Cambia a un tamaño más grande si hay mucho ruido
+        mask_cleaned = cv2.morphologyEx(mask_dilated, cv2.MORPH_OPEN, kernel)
+        mask_cleaned = cv2.morphologyEx(mask_dilated, cv2.MORPH_CLOSE, kernel)
+        return mask_cleaned
+
+
+
     def emergency_brake(self, obs: np.array) -> bool:
         """
         Método que implementa el freno de emergencia. Dada la observación del agente, se debe
         determinar si se activa el freno de emergencia o no.
 
         """        
-        # Recomendación, dividir la función en 3 partes:
-        # 1. Obtener la máscara de color amarillo
-        # 2. Aplicar operaciones morfológicas para eliminar ruido
-        # 3. Obtener bounding boxes y determinar si se activa el freno de emergencia
-        if obs is None or obs.ndim != 3 or obs.shape[2] != 3:
-            print("Observación inválida: la imagen no es BGR o tiene dimensiones incorrectas.")
-            return False
+        mask = self.get_mask(obs)
+        mask_morph = self.morph_ops(mask)
+
         
-        hsv_image = cv2.cvtColor(obs, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv_image, self.FILTRO_AMARILLO_LOWER, self.FILTRO_AMARILLO_UPPER)
+        cv2.imshow("Máscara final", mask_morph)
 
-        kernel = np.ones((3, 3), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(mask_morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours:
-            if cv2.contourArea(contour) > 500:  
-                x, y, w, h = cv2.boundingRect(contour)
-
-                if w<50 or h<50:
-                    return True 
+            area = cv2.contourArea(contour)
+            x, y, w, h = cv2.boundingRect(contour)
+            print(area)
+            print(x,y,w,h)
+            if area > 500:  # Ajusta según el tamaño esperado del patito
+                pass
         return False
 
 
@@ -84,7 +97,6 @@ class Desafio1:
 
         if self.last_obs is None:
             self.last_obs = self.env.reset()
-
 
         action = np.array([0.0, 0.0])
         
@@ -110,7 +122,9 @@ class Desafio1:
 
         # Se ejecuta el freno de emergencia
         if self.emergency_brake(self.last_obs):
+            print('AAAAAAAAAAAA QL TENI QUE PARAR TE VAY A PITEAR UN PATO')
             pass
+                
 
         # Aquí se obtienen las observaciones y se fija la acción
         # obs consiste en un imagen de 640 x 480 x 3
