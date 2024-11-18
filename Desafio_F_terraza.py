@@ -52,7 +52,7 @@ class Desafio1:
     def morph_ops(self, mask: np.array) -> np.array:
         kernel = np.ones((5, 5), np.uint8)
         mask_eroded = cv2.erode(mask, kernel, iterations=1)  # Erosión
-        mask_dilated = cv2.dilate(mask_eroded, kernel, iterations=4)  # Dilatación
+        mask_dilated = cv2.dilate(mask_eroded, kernel, iterations=3)  # Dilatación
         kernel = np.ones((5, 5), np.uint8)  # Cambia a un tamaño más grande si hay mucho ruido
         mask_cleaned = cv2.morphologyEx(mask_dilated, cv2.MORPH_OPEN, kernel)
         mask_cleaned = cv2.morphologyEx(mask_dilated, cv2.MORPH_CLOSE, kernel)
@@ -70,7 +70,7 @@ class Desafio1:
         mask_morph = self.morph_ops(mask)
 
         
-        cv2.imshow("Máscara final", mask_morph)
+        cv2.imshow("Máscara final",cv2.bitwise_and(obs, obs, mask=mask_morph))
 
         contours, _ = cv2.findContours(mask_morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours:
@@ -78,8 +78,9 @@ class Desafio1:
             x, y, w, h = cv2.boundingRect(contour)
             print(area)
             print(x,y,w,h)
-            if area > 500:  # Ajusta según el tamaño esperado del patito
-                pass
+            if area > 30000:  # Ajusta según el tamaño esperado del p
+                if w>120 or h>120:
+                    return True
         return False
 
 
@@ -122,8 +123,9 @@ class Desafio1:
 
         # Se ejecuta el freno de emergencia
         if self.emergency_brake(self.last_obs):
-            print('AAAAAAAAAAAA QL TENI QUE PARAR TE VAY A PITEAR UN PATO')
-            pass
+            if self.key_handler[key.UP]:
+                action[0] = 0
+            
                 
 
         # Aquí se obtienen las observaciones y se fija la acción
